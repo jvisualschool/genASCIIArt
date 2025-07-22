@@ -7,20 +7,8 @@
 
 > 🌟 이미지를 멋진 아스키 아트로 변환하는 웹 애플리케이션
 
-### 📸 스크린샷
-
-<table>
-  <tr>
-    <td align="center">
-      <img src="screenshot/screen1.png" width="400" alt="라이트 모드 스크린샷">
-      <br><b>라이트 모드</b>
-    </td>
-    <td align="center">
-      <img src="screenshot/screen2.png" width="400" alt="다크 모드 스크린샷">
-      <br><b>다크 모드 & 파티 효과</b>
-    </td>
-  </tr>
-</table>
+### 📸 DEMO
+https://ai.jvisualschool.com/genASCIIArt/
 
 ## ✨ 주요 기능
 
