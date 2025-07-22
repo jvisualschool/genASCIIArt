@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>genASCIIArt - 아스키 아트 생성기</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class'
+        }
+    </script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+    <style>
+        .ascii-output {
+            font-family: 'Courier New', monospace;
+            line-height: 1.0;
+            letter-spacing: 0;
+            white-space: pre;
+            word-wrap: break-word;
+            font-size: 8px;
+        }
+        .drop-zone {
+            border: 2px dashed #cbd5e1;
+            transition: all 0.3s ease;
+        }
+        .drop-zone.dragover {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+        }
+        
+        .dark .drop-zone.dragover {
+            background-color: #1e3a8a;
+        }
+        .slider {
+            background: linear-gradient(to right, #3b82f6, #1d4ed8);
+        }
+        
+        .party-char {
+            display: inline;
+            transition: color 0.3s ease;
+        }
+        
+        @keyframes party-pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        
+        @keyframes party-sparkle {
+            0% { 
+                text-shadow: 0 0 5px currentColor;
+                filter: brightness(1);
+            }
+            25% { 
+                text-shadow: 0 0 10px currentColor, 0 0 20px currentColor;
+                filter: brightness(1.5);
+            }
+            50% { 
+                text-shadow: 0 0 15px currentColor, 0 0 25px currentColor, 0 0 35px currentColor;
+                filter: brightness(2);
+            }
+            75% { 
+                text-shadow: 0 0 10px currentColor, 0 0 20px currentColor;
+                filter: brightness(1.5);
+            }
+            100% { 
+                text-shadow: 0 0 5px currentColor;
+                filter: brightness(1);
+            }
+        }
+        
+        .party-animation {
+            animation: party-pulse 1s ease-in-out infinite, party-sparkle 2s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body class="bg-orange-50 min-h-screen dark:bg-gray-900 transition-colors duration-300">
+    <!-- 다크모드 토글 버튼 -->
+    <div class="fixed top-4 right-4 z-50">
+        <button id="themeToggle" class="bg-white dark:bg-gray-800 text-gray-800 dark:text-white p-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200 dark:border-gray-700">
+            <i id="themeIcon" class="fas fa-moon text-lg"></i>
+        </button>
+    </div>
+    
+    <div class="container mx-auto px-4 py-8">
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-orange-800 dark:text-white mb-2">
+                <i class="fas fa-image mr-3"></i>genASCIIArt
+            </h1>
+            <p class="text-orange-700 dark:text-gray-300">이미지를 아스키 문자로 변환해보세요!</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- 입력 및 설정 패널 -->
+            <div class="lg:col-span-1">
+                <!-- 이미지 업로드 -->
+                <div class="bg-white dark:bg-gray-800 dark:border dark:border-gray-600 rounded-lg shadow-md p-6 mb-6">
+                    <h3 class="text-lg font-semibold mb-4 text-orange-800 dark:text-white">
+                        <i class="fas fa-upload mr-2"></i>이미지 업로드
+                    </h3>
+                    <div id="dropZone" class="drop-zone rounded-lg p-8 text-center cursor-pointer dark:border-gray-600">
+                        <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 dark:text-gray-500 mb-4"></i>
+                        <p class="text-orange-600 dark:text-gray-300 mb-2">이미지를 여기에 드래그하거나 클릭하세요</p>
+                        <p class="text-sm text-gray-400 dark:text-gray-500">PNG, JPG, GIF 지원</p>
+                        <input type="file" id="fileInput" accept="image/*" class="hidden">
+                    </div>
+                </div>
+
+                <!-- 설정 패널 -->
+                <div class="bg-white dark:bg-gray-800 dark:border dark:border-gray-600 rounded-lg shadow-md p-6">
+                    <h3 class="text-lg font-semibold mb-4 text-orange-800 dark:text-white">
+                        <i class="fas fa-cogs mr-2"></i>설정
+                    </h3>
+                    
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-orange-700 dark:text-gray-300 mb-2">
+                            출력 너비: <span id="widthValue">80</span>문자
+                        </label>
+                        <input type="range" id="widthSlider" min="20" max="200" value="80" 
+                               class="slider w-full h-2 rounded-lg appearance-none cursor-pointer">
+                    </div>
+
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-orange-700 dark:text-gray-300 mb-2">문자 세트</label>
+                        <select id="charsetSelect" class="w-full p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:ring-2 focus:ring-blue-500">
+                            <option value="standard">표준 ( .:-=+*#%@)</option>
+                            <option value="detailed">상세 ( .`^":;Il!i><~+_-?...)</option>
+                            <option value="blocks">블록 ( ░▒▓█)</option>
+                            <option value="numbers">숫자 ( 123456789)</option>
+                            <option value="custom">커스텀</option>
+                        </select>
+                    </div>
+
+                    <div id="customCharset" class="mb-6 hidden">
+                        <label class="block text-sm font-medium text-orange-700 dark:text-gray-300 mb-2">커스텀 문자</label>
+                        <input type="text" id="customChars" placeholder="밝은순→어두운순 문자 입력" 
+                               class="w-full p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:ring-2 focus:ring-blue-500">
+                    </div>
+
+                    <div class="mb-6">
+                        <label class="flex items-center">
+                            <input type="checkbox" id="invertColors" class="mr-2">
+                            <span class="text-sm text-orange-700 dark:text-gray-300">색상 반전</span>
+                        </label>
+                    </div>
+
+                    <button id="generateBtn" disabled
+                            class="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors">
+                        <i class="fas fa-magic mr-2"></i>ASCII 아트 생성
+                    </button>
+                </div>
+            </div>
+
+            <!-- 결과 패널 -->
+            <div class="lg:col-span-2">
+                <div class="bg-white dark:bg-gray-800 dark:border dark:border-gray-600 rounded-lg shadow-md p-6 h-full flex flex-col">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold text-orange-800 dark:text-white">
+                            <i class="fas fa-palette mr-2"></i>결과
+                        </h3>
+                        <div class="flex items-center">
+                            <select id="animationStyle" class="bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 mr-2 text-sm focus:ring-2 focus:ring-blue-500 disabled:bg-gray-200 dark:disabled:bg-gray-600" disabled>
+                                <option value="topToBottom">A. 위→아래 순차</option>
+                                <option value="leftToRight">B. 좌→우 순차</option>
+                                <option value="topBottomCenter">C. 위아래→중앙</option>
+                                <option value="leftRightCenter">D. 좌우→중앙</option>
+                                <option value="spiralOut">E. 바깥→안쪽 나선</option>
+                                <option value="spiralIn">F. 안쪽→바깥 나선</option>
+                                <option value="random">G. 랜덤</option>
+                                <option value="party">H. 파티 🎉</option>
+                            </select>
+                            <button id="playBtn" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition-colors mr-2 disabled:bg-gray-300" disabled>
+                                <i class="fas fa-play mr-1"></i>재생
+                            </button>
+                            <button id="copyBtn" class="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 transition-colors mr-2 disabled:bg-gray-300" disabled>
+                                <i class="fas fa-copy mr-1"></i>복사
+                            </button>
+                            <button id="downloadBtn" class="bg-purple-500 text-white px-4 py-2 rounded-md hover:bg-purple-600 transition-colors disabled:bg-gray-300" disabled>
+                                <i class="fas fa-download mr-1"></i>다운로드
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="loadingIndicator" class="hidden text-center py-8">
+                        <i class="fas fa-spinner fa-spin text-2xl text-blue-500 mb-2"></i>
+                        <p class="text-orange-600 dark:text-gray-300">변환 중...</p>
+                    </div>
+                    
+                    <div id="previewContainer" class="border border-gray-200 dark:border-gray-600 rounded-md p-4 bg-black text-white overflow-auto flex-1 hidden">
+                        <pre id="asciiOutput" class="ascii-output"></pre>
+                    </div>
+                    
+                    <div id="placeholderText" class="text-center text-gray-400 dark:text-gray-500 flex-1 flex items-center justify-center">
+                        <div>
+                            <i class="fas fa-image text-4xl mb-4"></i>
+                            <p>이미지를 업로드하면 여기에 ASCII 아트가 표시됩니다</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class ASCIIArtGenerator {
+            constructor() {
+                this.charsets = {
+                    standard: ' .:-=+*#%@',
+                    detailed: ' .`^",:;Il!i><~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$',
+                    blocks: ' ░▒▓█',
+                    numbers: ' 123456789',
+                    custom: ''
+                };
+                
+                this.image = null;
+                this.canvas = document.createElement('canvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.asciiLines = [];
+                this.asciiChars = [];
+                this.colorGroups = [];
+                this.isAnimating = false;
+                this.animationInterval = null;
+                this.partyInterval = null;
+                this.partyColors = [
+                    '#ff0066', '#00ff66', '#6600ff', '#ff6600', '#0066ff',
+                    '#ff0000', '#00ffff', '#ffff00', '#ff00ff', '#66ff00',
+                    '#0099ff', '#ff9900', '#9900ff', '#00ff99', '#ff3366',
+                    '#33ff66', '#6633ff', '#ff6633', '#3366ff', '#66ff33'
+                ];
+                this.sparkleTiming = 0;
+                
+                this.initializeElements();
+                this.setupEventListeners();
+                this.initializeTheme();
+            }
+            
+            initializeElements() {
+                this.dropZone = document.getElementById('dropZone');
+                this.fileInput = document.getElementById('fileInput');
+                this.widthSlider = document.getElementById('widthSlider');
+                this.widthValue = document.getElementById('widthValue');
+                this.charsetSelect = document.getElementById('charsetSelect');
+                this.customCharset = document.getElementById('customCharset');
+                this.customChars = document.getElementById('customChars');
+                this.invertColors = document.getElementById('invertColors');
+                this.generateBtn = document.getElementById('generateBtn');
+                this.copyBtn = document.getElementById('copyBtn');
+                this.downloadBtn = document.getElementById('downloadBtn');
+                this.asciiOutput = document.getElementById('asciiOutput');
+                this.previewContainer = document.getElementById('previewContainer');
+                this.placeholderText = document.getElementById('placeholderText');
+                this.loadingIndicator = document.getElementById('loadingIndicator');
+                this.themeToggle = document.getElementById('themeToggle');
+                this.themeIcon = document.getElementById('themeIcon');
+                this.playBtn = document.getElementById('playBtn');
+                this.animationStyle = document.getElementById('animationStyle');
+            }
+            
+            setupEventListeners() {
+                // 드래그 앤 드롭
+                this.dropZone.addEventListener('click', () => this.fileInput.click());
+                this.dropZone.addEventListener('dragover', this.handleDragOver.bind(this));
+                this.dropZone.addEventListener('dragleave', this.handleDragLeave.bind(this));
+                this.dropZone.addEventListener('drop', this.handleDrop.bind(this));
+                
+                // 파일 입력
+                this.fileInput.addEventListener('change', this.handleFileSelect.bind(this));
+                
+                
+                // 설정 변경
+                this.widthSlider.addEventListener('input', () => {
+                    this.widthValue.textContent = this.widthSlider.value;
+                });
+                
+                this.charsetSelect.addEventListener('change', () => {
+                    if (this.charsetSelect.value === 'custom') {
+                        this.customCharset.classList.remove('hidden');
+                    } else {
+                        this.customCharset.classList.add('hidden');
+                    }
+                });
+                
+                // 버튼 이벤트
+                this.generateBtn.addEventListener('click', this.generateASCII.bind(this));
+                this.copyBtn.addEventListener('click', this.copyToClipboard.bind(this));
+                this.downloadBtn.addEventListener('click', this.downloadASCII.bind(this));
+                this.themeToggle.addEventListener('click', this.toggleTheme.bind(this));
+                this.playBtn.addEventListener('click', this.playAnimation.bind(this));
+            }
+            
+            handleDragOver(e) {
+                e.preventDefault();
+                this.dropZone.classList.add('dragover');
+            }
+            
+            handleDragLeave(e) {
+                e.preventDefault();
+                this.dropZone.classList.remove('dragover');
+            }
+            
+            handleDrop(e) {
+                e.preventDefault();
+                this.dropZone.classList.remove('dragover');
+                
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    this.loadImage(files[0]);
+                }
+            }
+            
+            handleFileSelect(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    this.loadImage(file);
+                }
+            }
+            
+            loadImage(file) {
+                if (!file.type.startsWith('image/')) {
+                    alert('이미지 파일만 업로드 가능합니다.');
+                    return;
+                }
+                
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        this.image = img;
+                        this.generateBtn.disabled = false;
+                        this.generateASCII();
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+            
+            generateASCII() {
+                if (!this.image) return;
+                
+                this.showLoading(true);
+                
+                setTimeout(() => {
+                    const width = parseInt(this.widthSlider.value);
+                    const aspectRatio = this.image.height / this.image.width;
+                    const height = Math.floor(width * aspectRatio * 0.5); // ASCII 문자는 세로가 더 길어서 보정
+                    
+                    this.canvas.width = width;
+                    this.canvas.height = height;
+                    
+                    this.ctx.drawImage(this.image, 0, 0, width, height);
+                    
+                    const imageData = this.ctx.getImageData(0, 0, width, height);
+                    const ascii = this.convertToASCII(imageData, width, height);
+                    
+                    this.displayResult(ascii);
+                    this.showLoading(false);
+                }, 100);
+            }
+            
+            convertToASCII(imageData, width, height) {
+                let charset = this.getCharset();
+                if (!charset) {
+                    alert('문자 세트를 선택하거나 입력하세요.');
+                    return '';
+                }
+                
+                const data = imageData.data;
+                let ascii = '';
+                
+                for (let y = 0; y < height; y++) {
+                    for (let x = 0; x < width; x++) {
+                        const offset = (y * width + x) * 4;
+                        const r = data[offset];
+                        const g = data[offset + 1];
+                        const b = data[offset + 2];
+                        
+                        // 그레이스케일 변환 (가중평균)
+                        const gray = Math.floor(0.299 * r + 0.587 * g + 0.114 * b);
+                        
+                        // 밝기를 문자 인덱스로 변환
+                        let brightness = this.invertColors.checked ? 255 - gray : gray;
+                        const charIndex = Math.floor((brightness / 255) * (charset.length - 1));
+                        
+                        ascii += charset[charIndex];
+                    }
+                    ascii += '\n';
+                }
+                
+                return ascii;
+            }
+            
+            getCharset() {
+                const selected = this.charsetSelect.value;
+                if (selected === 'custom') {
+                    return this.customChars.value || this.charsets.standard;
+                }
+                return this.charsets[selected];
+            }
+            
+            displayResult(ascii) {
+                this.asciiLines = ascii.split('\n');
+                this.prepareCharacterMap();
+                this.asciiOutput.textContent = ascii;
+                this.previewContainer.classList.remove('hidden');
+                this.placeholderText.classList.add('hidden');
+                this.copyBtn.disabled = false;
+                this.downloadBtn.disabled = false;
+                this.playBtn.disabled = false;
+                this.animationStyle.disabled = false;
+            }
+            
+            prepareCharacterMap() {
+                this.asciiChars = [];
+                for (let y = 0; y < this.asciiLines.length; y++) {
+                    const line = this.asciiLines[y];
+                    for (let x = 0; x < line.length; x++) {
+                        this.asciiChars.push({
+                            char: line[x],
+                            x: x,
+                            y: y,
+                            visible: false,
+                            colorGroup: -1
+                        });
+                    }
+                }
+                this.createColorGroups();
+            }
+            
+            createColorGroups() {
+                const visited = new Set();
+                this.colorGroups = [];
+                let groupIndex = 0;
+                
+                for (let i = 0; i < this.asciiChars.length; i++) {
+                    if (visited.has(i) || this.asciiChars[i].char === ' ') continue;
+                    
+                    const group = [];
+                    const stack = [i];
+                    
+                    while (stack.length > 0) {
+                        const currentIndex = stack.pop();
+                        if (visited.has(currentIndex)) continue;
+                        
+                        visited.add(currentIndex);
+                        const currentChar = this.asciiChars[currentIndex];
+                        
+                        if (currentChar.char !== ' ') {
+                            currentChar.colorGroup = groupIndex;
+                            group.push(currentIndex);
+                            
+                            // 인접한 비어있지 않은 문자들 찾기
+                            const neighbors = this.getNeighbors(currentChar.x, currentChar.y);
+                            for (const neighborIndex of neighbors) {
+                                if (!visited.has(neighborIndex) && 
+                                    this.asciiChars[neighborIndex].char !== ' ') {
+                                    stack.push(neighborIndex);
+                                }
+                            }
+                        }
+                    }
+                    
+                    if (group.length > 0) {
+                        this.colorGroups.push({
+                            indices: group,
+                            color: this.partyColors[groupIndex % this.partyColors.length]
+                        });
+                        groupIndex++;
+                    }
+                }
+            }
+            
+            getNeighbors(x, y) {
+                const neighbors = [];
+                // 공백을 사이에 두고 이웃한 문자 찾기 (대각선 방향만 고려)
+                const directions = [
+                    [-1, -1], [-1, 0], [-1, 1],
+                    [0, -1],           [0, 1],
+                    [1, -1],  [1, 0],  [1, 1]
+                ];
+                
+                for (const [dx, dy] of directions) {
+                    const newX = x + dx;
+                    const newY = y + dy;
+                    const neighborIndex = this.asciiChars.findIndex(
+                        char => char.x === newX && char.y === newY
+                    );
+                    if (neighborIndex !== -1 && this.asciiChars[neighborIndex].char !== ' ') {
+                        neighbors.push(neighborIndex);
+                    }
+                }
+                
+                return neighbors;
+            }
+            
+            showLoading(show) {
+                if (show) {
+                    this.loadingIndicator.classList.remove('hidden');
+                    this.previewContainer.classList.add('hidden');
+                    this.placeholderText.classList.add('hidden');
+                } else {
+                    this.loadingIndicator.classList.add('hidden');
+                }
+            }
+            
+            copyToClipboard() {
+                const text = this.asciiOutput.textContent;
+                navigator.clipboard.writeText(text).then(() => {
+                    const originalText = this.copyBtn.innerHTML;
+                    this.copyBtn.innerHTML = '<i class="fas fa-check mr-1"></i>복사됨!';
+                    this.copyBtn.classList.add('bg-green-600');
+                    
+                    setTimeout(() => {
+                        this.copyBtn.innerHTML = originalText;
+                        this.copyBtn.classList.remove('bg-green-600');
+                    }, 2000);
+                }).catch(() => {
+                    alert('복사에 실패했습니다.');
+                });
+            }
+            
+            downloadASCII() {
+                const text = this.asciiOutput.textContent;
+                const blob = new Blob([text], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'ascii_art.txt';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
+            
+            initializeTheme() {
+                const savedTheme = localStorage.getItem('theme');
+                const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                
+                if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+                    document.documentElement.classList.add('dark');
+                    this.themeIcon.className = 'fas fa-sun text-lg';
+                } else {
+                    document.documentElement.classList.remove('dark');
+                    this.themeIcon.className = 'fas fa-moon text-lg';
+                }
+            }
+            
+            toggleTheme() {
+                const isDark = document.documentElement.classList.contains('dark');
+                
+                if (isDark) {
+                    document.documentElement.classList.remove('dark');
+                    this.themeIcon.className = 'fas fa-moon text-lg';
+                    localStorage.setItem('theme', 'light');
+                } else {
+                    document.documentElement.classList.add('dark');
+                    this.themeIcon.className = 'fas fa-sun text-lg';
+                    localStorage.setItem('theme', 'dark');
+                }
+            }
+            
+            playAnimation() {
+                if (this.isAnimating) {
+                    this.stopAnimation();
+                    return;
+                }
+                
+                if (this.asciiLines.length === 0) return;
+                
+                this.isAnimating = true;
+                this.playBtn.innerHTML = '<i class="fas fa-pause mr-1"></i>정지';
+                this.playBtn.classList.remove('bg-blue-500', 'hover:bg-blue-600');
+                this.playBtn.classList.add('bg-red-500', 'hover:bg-red-600');
+                
+                const style = this.animationStyle.value;
+                this.startAnimationByStyle(style);
+            }
+            
+            startAnimationByStyle(style) {
+                // 모든 문자를 숨김
+                this.asciiChars.forEach(char => char.visible = false);
+                this.renderAnimation();
+                
+                let sequence = this.getAnimationSequence(style);
+                let currentStep = 0;
+                
+                this.animationInterval = setInterval(() => {
+                    if (currentStep < sequence.length) {
+                        const indices = sequence[currentStep];
+                        indices.forEach(index => {
+                            if (this.asciiChars[index]) {
+                                this.asciiChars[index].visible = true;
+                            }
+                        });
+                        this.renderAnimation();
+                        currentStep++;
+                    } else {
+                        this.stopAnimation();
+                    }
+                }, 80);
+            }
+            
+            getAnimationSequence(style) {
+                const height = this.asciiLines.length;
+                const width = Math.max(...this.asciiLines.map(line => line.length));
+                
+                switch (style) {
+                    case 'topToBottom':
+                        return this.getTopToBottomSequence();
+                    case 'leftToRight':
+                        return this.getLeftToRightSequence();
+                    case 'topBottomCenter':
+                        return this.getTopBottomCenterSequence();
+                    case 'leftRightCenter':
+                        return this.getLeftRightCenterSequence();
+                    case 'spiralOut':
+                        return this.getSpiralOutSequence();
+                    case 'spiralIn':
+                        return this.getSpiralInSequence();
+                    case 'random':
+                        return this.getRandomSequence();
+                    case 'party':
+                        return this.getPartySequence();
+                    default:
+                        return this.getTopToBottomSequence();
+                }
+            }
+            
+            getTopToBottomSequence() {
+                const sequence = [];
+                for (let y = 0; y < this.asciiLines.length; y++) {
+                    const lineIndices = [];
+                    for (let i = 0; i < this.asciiChars.length; i++) {
+                        if (this.asciiChars[i].y === y) {
+                            lineIndices.push(i);
+                        }
+                    }
+                    if (lineIndices.length > 0) {
+                        sequence.push(lineIndices);
+                    }
+                }
+                return sequence;
+            }
+            
+            getLeftToRightSequence() {
+                const sequence = [];
+                const maxWidth = Math.max(...this.asciiLines.map(line => line.length));
+                for (let x = 0; x < maxWidth; x++) {
+                    const columnIndices = [];
+                    for (let i = 0; i < this.asciiChars.length; i++) {
+                        if (this.asciiChars[i].x === x) {
+                            columnIndices.push(i);
+                        }
+                    }
+                    if (columnIndices.length > 0) {
+                        sequence.push(columnIndices);
+                    }
+                }
+                return sequence;
+            }
+            
+            getTopBottomCenterSequence() {
+                const sequence = [];
+                const height = this.asciiLines.length;
+                const steps = Math.ceil(height / 2);
+                
+                for (let step = 0; step < steps; step++) {
+                    const indices = [];
+                    // 위에서
+                    if (step < height) {
+                        for (let i = 0; i < this.asciiChars.length; i++) {
+                            if (this.asciiChars[i].y === step) {
+                                indices.push(i);
+                            }
+                        }
+                    }
+                    // 아래에서
+                    const bottomY = height - 1 - step;
+                    if (bottomY > step && bottomY >= 0) {
+                        for (let i = 0; i < this.asciiChars.length; i++) {
+                            if (this.asciiChars[i].y === bottomY) {
+                                indices.push(i);
+                            }
+                        }
+                    }
+                    if (indices.length > 0) {
+                        sequence.push(indices);
+                    }
+                }
+                return sequence;
+            }
+            
+            getLeftRightCenterSequence() {
+                const sequence = [];
+                const maxWidth = Math.max(...this.asciiLines.map(line => line.length));
+                const steps = Math.ceil(maxWidth / 2);
+                
+                for (let step = 0; step < steps; step++) {
+                    const indices = [];
+                    // 왼쪽에서
+                    if (step < maxWidth) {
+                        for (let i = 0; i < this.asciiChars.length; i++) {
+                            if (this.asciiChars[i].x === step) {
+                                indices.push(i);
+                            }
+                        }
+                    }
+                    // 오른쪽에서
+                    const rightX = maxWidth - 1 - step;
+                    if (rightX > step && rightX >= 0) {
+                        for (let i = 0; i < this.asciiChars.length; i++) {
+                            if (this.asciiChars[i].x === rightX) {
+                                indices.push(i);
+                            }
+                        }
+                    }
+                    if (indices.length > 0) {
+                        sequence.push(indices);
+                    }
+                }
+                return sequence;
+            }
+            
+            getSpiralOutSequence() {
+                const sequence = [];
+                const height = this.asciiLines.length;
+                const maxWidth = Math.max(...this.asciiLines.map(line => line.length));
+                const visited = new Set();
+                
+                let top = 0, bottom = height - 1, left = 0, right = maxWidth - 1;
+                
+                while (top <= bottom && left <= right) {
+                    const stepIndices = [];
+                    
+                    // 위쪽 행
+                    for (let x = left; x <= right; x++) {
+                        const index = this.getCharIndex(x, top);
+                        if (index !== -1 && !visited.has(index)) {
+                            stepIndices.push(index);
+                            visited.add(index);
+                        }
+                    }
+                    top++;
+                    
+                    // 오른쪽 열
+                    for (let y = top; y <= bottom; y++) {
+                        const index = this.getCharIndex(right, y);
+                        if (index !== -1 && !visited.has(index)) {
+                            stepIndices.push(index);
+                            visited.add(index);
+                        }
+                    }
+                    right--;
+                    
+                    // 아래쪽 행
+                    if (top <= bottom) {
+                        for (let x = right; x >= left; x--) {
+                            const index = this.getCharIndex(x, bottom);
+                            if (index !== -1 && !visited.has(index)) {
+                                stepIndices.push(index);
+                                visited.add(index);
+                            }
+                        }
+                        bottom--;
+                    }
+                    
+                    // 왼쪽 열
+                    if (left <= right) {
+                        for (let y = bottom; y >= top; y--) {
+                            const index = this.getCharIndex(left, y);
+                            if (index !== -1 && !visited.has(index)) {
+                                stepIndices.push(index);
+                                visited.add(index);
+                            }
+                        }
+                        left++;
+                    }
+                    
+                    if (stepIndices.length > 0) {
+                        sequence.push(stepIndices);
+                    }
+                }
+                return sequence;
+            }
+            
+            getSpiralInSequence() {
+                const spiralOut = this.getSpiralOutSequence();
+                return spiralOut.reverse();
+            }
+            
+            getRandomSequence() {
+                const sequence = [];
+                const allIndices = [...Array(this.asciiChars.length).keys()];
+                const shuffled = [...allIndices].sort(() => Math.random() - 0.5);
+                
+                const chunkSize = Math.max(1, Math.floor(shuffled.length / 20));
+                for (let i = 0; i < shuffled.length; i += chunkSize) {
+                    sequence.push(shuffled.slice(i, i + chunkSize));
+                }
+                return sequence;
+            }
+            
+            getPartySequence() {
+                const sequence = [];
+                const shuffledGroups = [...this.colorGroups].sort(() => Math.random() - 0.5);
+                
+                for (const group of shuffledGroups) {
+                    sequence.push(group.indices);
+                }
+                return sequence;
+            }
+            
+            getCharIndex(x, y) {
+                return this.asciiChars.findIndex(char => char.x === x && char.y === y);
+            }
+            
+            renderAnimation() {
+                const isPartyMode = this.animationStyle.value === 'party';
+                
+                if (isPartyMode) {
+                    this.renderPartyMode();
+                } else {
+                    let result = '';
+                    for (let y = 0; y < this.asciiLines.length; y++) {
+                        for (let x = 0; x < this.asciiLines[y].length; x++) {
+                            const charObj = this.asciiChars.find(c => c.x === x && c.y === y);
+                            result += charObj && charObj.visible ? charObj.char : ' ';
+                        }
+                        result += '\n';
+                    }
+                    this.asciiOutput.textContent = result;
+                }
+            }
+            
+            renderPartyMode() {
+                this.asciiOutput.innerHTML = '';
+                this.sparkleTiming += 0.2;
+                
+                for (let y = 0; y < this.asciiLines.length; y++) {
+                    for (let x = 0; x < this.asciiLines[y].length; x++) {
+                        const charObj = this.asciiChars.find(c => c.x === x && c.y === y);
+                        
+                        if (charObj) {
+                            const span = document.createElement('span');
+                            span.className = 'party-char';
+                            
+                            if (charObj.visible && charObj.char !== ' ') {
+                                const group = this.colorGroups.find(g => 
+                                    g.indices.includes(this.asciiChars.indexOf(charObj))
+                                );
+                                if (group) {
+                                    // 시간에 따라 색상을 계속 변경하여 반짝반짝 효과
+                                    const colorIndex = Math.floor((this.sparkleTiming + group.indices[0] * 0.5) % this.partyColors.length);
+                                    span.style.color = this.partyColors[colorIndex];
+                                    span.classList.add('party-animation');
+                                    
+                                    // 각 그룹마다 다른 애니메이션 딜레이 적용
+                                    const delay = (group.indices[0] * 0.1) % 2;
+                                    span.style.animationDelay = `${delay}s`;
+                                }
+                                span.textContent = charObj.char;
+                            } else {
+                                span.textContent = charObj ? charObj.char : ' ';
+                            }
+                            
+                            this.asciiOutput.appendChild(span);
+                        }
+                    }
+                    
+                    const lineBreak = document.createElement('br');
+                    this.asciiOutput.appendChild(lineBreak);
+                }
+                
+                // 파티 모드에서는 계속 색상을 변경
+                if (this.isAnimating && this.animationStyle.value === 'party') {
+                    setTimeout(() => this.renderPartyMode(), 200);
+                }
+            }
+            
+            stopAnimation() {
+                this.isAnimating = false;
+                if (this.animationInterval) {
+                    clearInterval(this.animationInterval);
+                    this.animationInterval = null;
+                }
+                
+                this.stopContinuousPartyMode();
+                
+                this.playBtn.innerHTML = '<i class="fas fa-play mr-1"></i>재생';
+                this.playBtn.classList.remove('bg-red-500', 'hover:bg-red-600');
+                this.playBtn.classList.add('bg-blue-500', 'hover:bg-blue-600');
+                
+                // 애니메이션이 끝나면 전체 결과 표시
+                if (this.animationStyle.value === 'party') {
+                    // 파티 모드에서는 모든 문자를 보이게 설정하고 계속 반짝반짝
+                    this.asciiChars.forEach(char => char.visible = true);
+                    this.startContinuousPartyMode();
+                } else {
+                    this.asciiOutput.textContent = this.asciiLines.join('\n');
+                }
+            }
+            
+            startContinuousPartyMode() {
+                if (this.animationStyle.value === 'party') {
+                    this.renderPartyMode();
+                    this.partyInterval = setTimeout(() => this.startContinuousPartyMode(), 200);
+                }
+            }
+            
+            stopContinuousPartyMode() {
+                if (this.partyInterval) {
+                    clearTimeout(this.partyInterval);
+                    this.partyInterval = null;
+                }
+            }
+            
+        }
+        
+        // 앱 초기화
+        document.addEventListener('DOMContentLoaded', () => {
+            new ASCIIArtGenerator();
+        });
+    </script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"9631be340caffcd7","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"4edd5f8ec12a48cfa682ab8261b80a79"}' crossorigin="anonymous"></script>
+</body>
+</html>
+    <script id="html_badge_script1">
+        window.__genspark_remove_badge_link = "https://www.genspark.ai/api/html_badge/" +
+            "remove_badge?token=To%2FBnjzloZ3UfQdcSaYfDhJDBYyeHe23bl8Pf7LL%2BefPF1cyP6XwtizRv9kN4zuf51WaWqwyXlj4Oa%2FFG13zQljYZEPgdLPC4r9qn42Po%2BF5Z43jmfFrcxW%2BpxvQhyC%2BT3uYoA9kTkypavxT7XVqEMOQj14isI0jlj8oIjB%2BJSW9F3tNfaIHGmF%2BWfguIpqd597cQBc402ipkicvUwR5hRYHuivPMz7q4c5bfrAYukLvV6cSpZDhrp0Bum1XxgUejcuUVn7oWibmLcq9nSSs1rV24x%2FJ%2F8vgFZcvZ5B5qYSUIX%2Bf46aGWxJM8EHJwbY8AAdN%2FLBkUgx%2B3RiogkjFoRCsvs6MaOwah2tV8euB%2BssepZ6LYafSPij0XhAr3BYuxMzimSftm1d02sJOHu%2F8IKAYa5qx4oARQrzSjhdGNDYJyElp27y95H69JXXJhooeWOZUePvQL2o0FifHuZ24eppustGm%2BOqVNT%2FljA2jO4GoIYqf7%2Bua9mrBjIhNcdMx%2BJP2m3DCSzxjCllXRB2jAw%3D%3D";
+        window.__genspark_locale = "ko-KR";
+        window.__genspark_token = "To/BnjzloZ3UfQdcSaYfDhJDBYyeHe23bl8Pf7LL+efPF1cyP6XwtizRv9kN4zuf51WaWqwyXlj4Oa/FG13zQljYZEPgdLPC4r9qn42Po+F5Z43jmfFrcxW+pxvQhyC+T3uYoA9kTkypavxT7XVqEMOQj14isI0jlj8oIjB+JSW9F3tNfaIHGmF+WfguIpqd597cQBc402ipkicvUwR5hRYHuivPMz7q4c5bfrAYukLvV6cSpZDhrp0Bum1XxgUejcuUVn7oWibmLcq9nSSs1rV24x/J/8vgFZcvZ5B5qYSUIX+f46aGWxJM8EHJwbY8AAdN/LBkUgx+3RiogkjFoRCsvs6MaOwah2tV8euB+ssepZ6LYafSPij0XhAr3BYuxMzimSftm1d02sJOHu/8IKAYa5qx4oARQrzSjhdGNDYJyElp27y95H69JXXJhooeWOZUePvQL2o0FifHuZ24eppustGm+OqVNT/ljA2jO4GoIYqf7+ua9mrBjIhNcdMx+JP2m3DCSzxjCllXRB2jAw==";
+    </script>
+    
+    <script id="html_notice_dialog_script" src="https://www.genspark.ai/notice_dialog.js"></script>
+    
